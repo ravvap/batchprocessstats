@@ -57,10 +57,10 @@ public class BatchProcessingStatisticsController {
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER','SR_ANALYST','ANALYST')")
     @Operation(summary = "Get paginated list of batch job history records (BPS-004)")
     public ResponseEntity<PagedResponse<Response>> list(
-            @RequestParam(defaultValue = "" + Pagination.DEFAULT_PAGE)  int    page,
-            @RequestParam(defaultValue = "" + Pagination.DEFAULT_PAGE_SIZE) int size,
-            @RequestParam(defaultValue = SortFields.DEFAULT_SORT)       String sort,
-            @RequestParam(required = false) Long    sourceSystemId,
+            @RequestParam(defaultValue = "" + Pagination.DEFAULT_PAGE)     int    page,
+            @RequestParam(defaultValue = "" + Pagination.DEFAULT_PAGE_SIZE) int   size,
+            @RequestParam(defaultValue = SortFields.DEFAULT_SORT)          String sort,
+            @RequestParam(required = false) String  sourceName,
             @RequestParam(required = false) String  jobStatus,
             @RequestParam(required = false) String  jobType,
             @RequestParam(required = false) Instant startTimeFrom,
@@ -73,7 +73,7 @@ public class BatchProcessingStatisticsController {
 
         return ResponseEntity.ok(
                 service.list(page, size, sort,
-                        sourceSystemId, jobStatus, jobType,
+                        sourceName, jobStatus, jobType,
                         startTimeFrom, startTimeTo));
     }
 

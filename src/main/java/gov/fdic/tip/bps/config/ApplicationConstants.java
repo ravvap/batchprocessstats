@@ -71,6 +71,9 @@ public final class ApplicationConstants {
     // ====================================================================== //
     public static final class SortFields {
         private SortFields() {}
+
+        /** User-facing sort key → used in API query param */
+        public static final String SOURCE_NAME                     = "sourceName";
         public static final String START_TIME                      = "startTime";
         public static final String END_TIME                        = "endTime";
         public static final String JOB_TYPE                        = "jobType";
@@ -81,6 +84,10 @@ public final class ApplicationConstants {
         public static final String RECORDS_PROCESSED_CURRENT       = "recordsProcessedCurrentPeriod";
         public static final String RECORDS_PROCESSED_PRIOR         = "recordsProcessedPriorPeriod";
         public static final String RECORDS_UNPOSTABLE              = "recordsUnpostable";
+
+        /** Internal JPA path for sourceName — joined field on BatchSourceSystem */
+        public static final String SOURCE_NAME_JPA_PATH            = "sourceSystem.sourceName";
+
         public static final String DEFAULT_SORT                    = START_TIME + ",desc";
     }
 

@@ -1,6 +1,9 @@
 package gov.fdic.tip.bps.repository;
 
 import gov.fdic.tip.bps.entity.BatchJobHistory;
+import gov.fdic.tip.bps.entity.BatchSourceSystem;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -11,9 +14,14 @@ import java.util.List;
 /**
  * Criteria API specifications for batch_job_history dynamic filtering (BPS-002, BPS-004).
  *
- * Each filter is only added to the predicate list when the parameter is non-null,
- * completely avoiding the PostgreSQL "could not determine data type of parameter $N"
- * error that occurs with JPQL IS NULL checks on untyped null bindings.
+ * Null filters are simply not added to the predicate list, avoiding the
+ * PostgreSQL "could not determine data type of parameter $N" error entirely.
+ *
+ * Filters supported:
+ *   sourceName   — case-insensitive LIKE contains on batch_source_system.source_name (JOIN)
+ *   jobStatus    — exact match on job_status
+ *   jobType      — case-insensitive LIKE contains on job_type
+ *   from / to    — inclusive bounds on start_time
  */
 public final class BatchJobHistorySpecification {
 
@@ -22,14 +30,14 @@ public final class BatchJobHistorySpecification {
     /**
      * Builds a compound AND specification from all provided (non-null) filters.
      *
-     * @param sourceSystemId  exact match on source_system_id FK
-     * @param jobStatus       exact match on job_status
-     * @param jobType         case-insensitive LIKE contains on job_type
-     * @param from            inclusive lower bound on start_time
-     * @param to              inclusive upper bound on start_time
+     * @param sourceName  case-insensitive substring match on batch_source_system.source_name
+     * @param jobStatus   exact match on job_status
+     * @param jobType     case-insensitive substring match on job_type
+     * @param from        inclusive lower bound on start_time (UTC)
+     * @param to          inclusive upper bound on start_time (UTC)
      */
     public static Specification<BatchJobHistory> withFilters(
-            Long    sourceSystemId,
+            String  sourceName,
             String  jobStatus,
             String  jobType,
             Instant from,
@@ -38,31 +46,40 @@ public final class BatchJobHistorySpecification {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            if (sourceSystemId != null) {
+            // sourceName filter — join to batch_source_system
+            if (sourceName != null && !sourceName.isBlank()) {
+                Join<BatchJobHistory, BatchSourceSystem> sourceJoin =
+                        root.join("sourceSystem", JoinType.INNER);
                 predicates.add(
-                    cb.equal(root.get("sourceSystem").get("id"), sourceSystemId));
+                    cb.like(
+                        cb.lower(sourceJoin.get("sourceName")),
+                        "%" + sourceName.trim().toLowerCase() + "%"));
             }
 
+            // jobStatus — exact match
             if (jobStatus != null && !jobStatus.isBlank()) {
-                predicates.add(
-                    cb.equal(root.get("jobStatus"), jobStatus));
+                predicates.add(cb.equal(root.get("jobStatus"), jobStatus));
             }
 
+            // jobType — case-insensitive contains
             if (jobType != null && !jobType.isBlank()) {
                 predicates.add(
                     cb.like(
                         cb.lower(root.get("jobType")),
-                        "%" + jobType.toLowerCase() + "%"));
+                        "%" + jobType.trim().toLowerCase() + "%"));
             }
 
+            // startTime range
             if (from != null) {
-                predicates.add(
-                    cb.greaterThanOrEqualTo(root.get("startTime"), from));
+                predicates.add(cb.greaterThanOrEqualTo(root.get("startTime"), from));
+            }
+            if (to != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("startTime"), to));
             }
 
-            if (to != null) {
-                predicates.add(
-                    cb.lessThanOrEqualTo(root.get("startTime"), to));
+            // Avoid duplicate rows when join is present with COUNT query for pagination
+            if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                query.distinct(true);
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

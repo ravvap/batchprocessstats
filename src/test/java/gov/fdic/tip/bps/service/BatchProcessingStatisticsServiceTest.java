@@ -74,7 +74,9 @@ class BatchProcessingStatisticsServiceTest {
         void list_defaultSort_returnsPagedResponse() {
             Page<BatchJobHistory> page =
                     new PageImpl<>(List.of(sampleEntity), PageRequest.of(0, 25), 1);
-            when(jobHistoryRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
+            when(jobHistoryRepository.findAll(
+                    any(org.springframework.data.jpa.domain.Specification.class),
+                    any(Pageable.class)))
                     .thenReturn(page);
 
             PagedResponse<Response> result =
@@ -90,14 +92,17 @@ class BatchProcessingStatisticsServiceTest {
         void list_sizeAboveMax_clampedTo100() {
             Page<BatchJobHistory> page =
                     new PageImpl<>(List.of(), PageRequest.of(0, 100), 0);
-            when(jobHistoryRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
+            when(jobHistoryRepository.findAll(
+                    any(org.springframework.data.jpa.domain.Specification.class),
+                    any(Pageable.class)))
                     .thenReturn(page);
 
             service.list(0, 999, "startTime,desc", null, null, null, null, null);
 
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-            verify(jobHistoryRepository)
-                    .findAll(any(org.springframework.data.jpa.domain.Specification.class), captor.capture());
+            verify(jobHistoryRepository).findAll(
+                    any(org.springframework.data.jpa.domain.Specification.class),
+                    captor.capture());
             assertThat(captor.getValue().getPageSize()).isEqualTo(100);
         }
 

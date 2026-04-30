@@ -83,14 +83,14 @@ class BatchProcessingStatisticsControllerTest {
         }
 
         @Test
-        @DisplayName("200 with sourceSystemId filter")
-        void list_withSourceSystemFilter_returns200() throws Exception {
+        @DisplayName("200 with sourceName filter")
+        void list_withSourceNameFilter_returns200() throws Exception {
             when(service.list(anyInt(), anyInt(), anyString(),
-                    eq(1L), any(), any(), any(), any()))
+                    eq("SIMS"), any(), any(), any(), any()))
                     .thenReturn(emptyPage());
 
             mockMvc.perform(get(BASE_URL)
-                            .param("sourceSystemId", "1")
+                            .param("sourceName", "SIMS")
                             .with(jwt().authorities(() -> "ROLE_ANALYST")))
                     .andExpect(status().isOk());
         }

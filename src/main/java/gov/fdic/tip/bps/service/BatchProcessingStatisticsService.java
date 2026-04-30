@@ -27,49 +27,64 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service layer for Batch Processing Statistics (BPS-004 through BPS-007).
  *
- * Backed by batch_job_history + batch_source_system tables.
- * batch_processing_statistics has been removed.
+ * Backed by batch_job_history + batch_source_system.
+ *
+ * Filters: sourceName (LIKE on source_name), jobStatus, jobType, startTimeFrom/To.
+ * Sort:    sourceName maps to "sourceSystem.sourceName" (Spring Data JPA joined path).
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class BatchProcessingStatisticsService {
 
-    private static final List<String> SORTABLE_FIELDS = List.of(
-            SortFields.START_TIME,
-            SortFields.END_TIME,
-            SortFields.JOB_TYPE,
-            SortFields.JOB_STATUS,
-            SortFields.STATUS,
-            SortFields.RECORDS_GATHERED,
-            SortFields.RECORDS_CHANGED,
-            SortFields.RECORDS_PROCESSED_CURRENT,
-            SortFields.RECORDS_PROCESSED_PRIOR,
-            SortFields.RECORDS_UNPOSTABLE
+    /**
+     * User-facing sort key → actual JPA field path.
+     * sourceName is on the joined BatchSourceSystem entity, so its path must be
+     * "sourceSystem.sourceName" for Spring Data JPA to resolve it correctly.
+     */
+    private static final Map<String, String> SORT_FIELD_MAP = Map.of(
+            SortFields.SOURCE_NAME,                SortFields.SOURCE_NAME_JPA_PATH,
+            SortFields.START_TIME,                 SortFields.START_TIME,
+            SortFields.END_TIME,                   SortFields.END_TIME,
+            SortFields.JOB_TYPE,                   SortFields.JOB_TYPE,
+            SortFields.JOB_STATUS,                 SortFields.JOB_STATUS,
+            SortFields.STATUS,                     SortFields.STATUS,
+            SortFields.RECORDS_GATHERED,           SortFields.RECORDS_GATHERED,
+            SortFields.RECORDS_CHANGED,            SortFields.RECORDS_CHANGED,
+            SortFields.RECORDS_PROCESSED_CURRENT,  SortFields.RECORDS_PROCESSED_CURRENT,
+            SortFields.RECORDS_PROCESSED_PRIOR,    SortFields.RECORDS_PROCESSED_PRIOR
     );
 
-    private final BatchJobHistoryRepository    jobHistoryRepository;
-    private final BatchSourceSystemRepository  sourceSystemRepository;
+    private final BatchJobHistoryRepository   jobHistoryRepository;
+    private final BatchSourceSystemRepository sourceSystemRepository;
 
     // ------------------------------------------------------------------ //
     //  BPS-004: GET paginated, filterable list                            //
     // ------------------------------------------------------------------ //
 
+    /**
+     * @param sourceName  case-insensitive substring filter on batch_source_system.source_name
+     * @param jobStatus   exact match filter on job_status
+     * @param jobType     case-insensitive substring filter on job_type
+     * @param from        inclusive UTC lower bound on start_time
+     * @param to          inclusive UTC upper bound on start_time
+     */
     @Transactional(readOnly = true)
     public PagedResponse<Response> list(
             int page, int size, String sortParam,
-            Long sourceSystemId, String jobStatus, String jobType,
+            String sourceName, String jobStatus, String jobType,
             Instant from, Instant to) {
 
         Pageable pageable = buildPageable(page, size, sortParam);
 
         Page<BatchJobHistory> resultPage = jobHistoryRepository.findAll(
                 BatchJobHistorySpecification.withFilters(
-                        sourceSystemId, jobStatus, jobType, from, to),
+                        sourceName, jobStatus, jobType, from, to),
                 pageable);
 
         List<Response> content = resultPage.getContent()
@@ -87,8 +102,7 @@ public class BatchProcessingStatisticsService {
                 resultPage.getSize(),
                 resultPage.getTotalElements(),
                 resultPage.getTotalPages(),
-                sortParam
-        );
+                sortParam);
     }
 
     // ------------------------------------------------------------------ //
@@ -113,12 +127,11 @@ public class BatchProcessingStatisticsService {
         validateEndTimeNotBeforeStart(body.startTime(), body.endTime());
 
         BatchSourceSystem sourceSystem = resolveSourceSystem(body.sourceSystemId());
-
         BatchJobHistory entity = new BatchJobHistory();
         applyFields(entity, body, sourceSystem);
 
         BatchJobHistory saved = jobHistoryRepository.save(entity);
-        log.info("{} id={} jobType={} sourceSystem={}",
+        log.info("{} id={} jobType={} sourceName={}",
                 AuditEvents.BATCH_STATISTICS_CREATED,
                 saved.getId(), saved.getJobType(),
                 saved.getSourceSystem().getSourceName());
@@ -154,16 +167,10 @@ public class BatchProcessingStatisticsService {
                 .orElseThrow(() -> new SourceSystemNotFoundException(sourceSystemId));
     }
 
-    /**
-     * Guards against non-null server-managed fields (id) in the request body (BPS-006, BPS-007).
-     * batch_job_history.id is a bigint identity — never supplied by the caller.
-     */
     private void validateNoServerManagedFields(BatchProcessingStatisticsDto.RequestBody body) {
         List<String> offenders = new ArrayList<>();
         if (body.id() != null) offenders.add("id");
-        if (!offenders.isEmpty()) {
-            throw new ServerManagedFieldException(offenders);
-        }
+        if (!offenders.isEmpty()) throw new ServerManagedFieldException(offenders);
     }
 
     private void validateEndTimeNotBeforeStart(Instant start, Instant end) {
@@ -212,6 +219,13 @@ public class BatchProcessingStatisticsService {
                 .build();
     }
 
+    /**
+     * Parses "field,direction" sort param and builds a Pageable.
+     *
+     * "sourceName" is mapped to "sourceSystem.sourceName" — Spring Data JPA
+     * resolves dotted paths across associations for Sort when used with
+     * JpaSpecificationExecutor.
+     */
     private Pageable buildPageable(int page, int size, String sortParam) {
         int clampedSize = Math.min(
                 Math.max(size, Pagination.MIN_PAGE_SIZE),
@@ -221,18 +235,23 @@ public class BatchProcessingStatisticsService {
         if (parts.length != 2) {
             throw new IllegalArgumentException(ErrorMessages.SORT_FORMAT_INVALID);
         }
-        String field     = parts[0].trim();
+
+        String userField = parts[0].trim();
         String direction = parts[1].trim();
 
-        if (!SORTABLE_FIELDS.contains(field)) {
-            throw new IllegalArgumentException(ErrorMessages.SORT_FIELD_UNKNOWN + field);
+        // Map user-facing field name → JPA field path
+        String jpaField = SORT_FIELD_MAP.get(userField);
+        if (jpaField == null) {
+            throw new IllegalArgumentException(ErrorMessages.SORT_FIELD_UNKNOWN + userField);
         }
+
         Sort.Direction dir;
         try {
             dir = Sort.Direction.fromString(direction);
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException(ErrorMessages.SORT_DIRECTION_INVALID);
         }
-        return PageRequest.of(page, clampedSize, Sort.by(dir, field));
+
+        return PageRequest.of(page, clampedSize, Sort.by(dir, jpaField));
     }
 }
