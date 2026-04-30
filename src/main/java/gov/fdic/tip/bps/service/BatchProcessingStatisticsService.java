@@ -13,6 +13,7 @@ import gov.fdic.tip.bps.exception.BatchStatisticsNotFoundException;
 import gov.fdic.tip.bps.exception.ServerManagedFieldException;
 import gov.fdic.tip.bps.exception.SourceSystemNotFoundException;
 import gov.fdic.tip.bps.repository.BatchJobHistoryRepository;
+import gov.fdic.tip.bps.repository.BatchJobHistorySpecification;
 import gov.fdic.tip.bps.repository.BatchSourceSystemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,8 +67,10 @@ public class BatchProcessingStatisticsService {
 
         Pageable pageable = buildPageable(page, size, sortParam);
 
-        Page<BatchJobHistory> resultPage = jobHistoryRepository.findAllFiltered(
-                sourceSystemId, jobStatus, jobType, from, to, pageable);
+        Page<BatchJobHistory> resultPage = jobHistoryRepository.findAll(
+                BatchJobHistorySpecification.withFilters(
+                        sourceSystemId, jobStatus, jobType, from, to),
+                pageable);
 
         List<Response> content = resultPage.getContent()
                 .stream()

@@ -74,7 +74,7 @@ class BatchProcessingStatisticsServiceTest {
         void list_defaultSort_returnsPagedResponse() {
             Page<BatchJobHistory> page =
                     new PageImpl<>(List.of(sampleEntity), PageRequest.of(0, 25), 1);
-            when(jobHistoryRepository.findAllFiltered(any(), any(), any(), any(), any(), any()))
+            when(jobHistoryRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
                     .thenReturn(page);
 
             PagedResponse<Response> result =
@@ -90,14 +90,14 @@ class BatchProcessingStatisticsServiceTest {
         void list_sizeAboveMax_clampedTo100() {
             Page<BatchJobHistory> page =
                     new PageImpl<>(List.of(), PageRequest.of(0, 100), 0);
-            when(jobHistoryRepository.findAllFiltered(any(), any(), any(), any(), any(), any()))
+            when(jobHistoryRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(Pageable.class)))
                     .thenReturn(page);
 
             service.list(0, 999, "startTime,desc", null, null, null, null, null);
 
             ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
             verify(jobHistoryRepository)
-                    .findAllFiltered(any(), any(), any(), any(), any(), captor.capture());
+                    .findAll(any(org.springframework.data.jpa.domain.Specification.class), captor.capture());
             assertThat(captor.getValue().getPageSize()).isEqualTo(100);
         }
 
@@ -207,9 +207,7 @@ class BatchProcessingStatisticsServiceTest {
             Instant start = Instant.parse("2024-06-01T10:00:00Z");
             Instant end   = Instant.parse("2024-06-01T09:00:00Z");
 
-            when(sourceSystemRepository.findById(1L))
-                    .thenReturn(Optional.of(sampleSourceSystem));
-
+            // No sourceSystem stub needed — validation fires before the FK lookup
             BatchProcessingStatisticsDto.RequestBody body = new BatchProcessingStatisticsDto.RequestBody(
                     1L, null, "BATCH", 0, "RUNNING",
                     start, end, "ACTIVE", null,
