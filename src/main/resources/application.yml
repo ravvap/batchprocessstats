@@ -1,0 +1,48 @@
+spring:
+  application:
+    name: batch-processing-statistics
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tipdb
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${ENTRA_ISSUER_URI}
+          audiences: ${ENTRA_AUDIENCE}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+  show-actuator: false
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+logging:
+  level:
+    gov.fdic.tip: INFO
+    org.springframework.security: WARN
+
+app:
+  security:
+    jwt:
+      issuer-uri: ${ENTRA_ISSUER_URI}
+      audience: ${ENTRA_AUDIENCE}

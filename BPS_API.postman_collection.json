@@ -1,0 +1,879 @@
+{
+  "info": {
+    "name": "Batch Processing Statistics API",
+    "description": "TIP Platform — Batch Processing Statistics module.\nCovers BPS-001 through BPS-010.\n\n## Setup\n1. Set the `baseUrl` variable (default: http://localhost:8080)\n2. Set `humanToken` — a valid Entra Bearer token for a human role (Admin / Manager / Sr. Analyst / Analyst)\n3. Set `batchRunnerToken` — a valid Entra Bearer token for the Batch Runner service principal\n4. After running 'POST — Create record', the `recordId` variable is auto-set from the Location header.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+
+  "variable": [
+    { "key": "baseUrl",          "value": "http://localhost:8080",  "type": "string" },
+    { "key": "humanToken",       "value": "<PASTE_HUMAN_JWT_HERE>", "type": "string" },
+    { "key": "batchRunnerToken", "value": "<PASTE_SVC_JWT_HERE>",   "type": "string" },
+    { "key": "recordId",         "value": "",                        "type": "string" }
+  ],
+
+  "item": [
+
+    {
+      "name": "Epic 1 — UI Read (Human roles)",
+      "item": [
+
+        {
+          "name": "BPS-004 — GET list (defaults)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"]
+            },
+            "description": "Returns page 0, size 25, sorted by startDateTime DESC (defaults). Roles: Admin, Manager, Sr. Analyst, Analyst."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Has content array', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('content').that.is.an('array');",
+                  "    pm.expect(body).to.have.property('totalElements');",
+                  "    pm.expect(body).to.have.property('page');",
+                  "    pm.expect(body).to.have.property('size');",
+                  "    pm.expect(body).to.have.property('totalPages');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "BPS-004 — GET list (page + size)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics?page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Page size = 10. Max allowed = 100."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Page size <= 10', () => {",
+                  "    pm.expect(pm.response.json().content.length).to.be.at.most(10);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "BPS-004 — GET list (sort by processName ASC)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics?sort=processName,asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"],
+              "query": [
+                { "key": "sort", "value": "processName,asc" }
+              ]
+            },
+            "description": "Sortable fields: startDateTime, endDateTime, processName, type, recordsGathered, recordsChanged, errorRecords, processedRecords."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "BPS-004 — GET list (filter by type)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics?type=API",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"],
+              "query": [
+                { "key": "type", "value": "API",
+                  "description": "Allowed: EMAIL, API, SFTP_PULL, BATCH" }
+              ]
+            },
+            "description": "Filter by type. Stored values: EMAIL, API, SFTP_PULL, BATCH."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All records have type API', () => {",
+                  "    pm.response.json().content.forEach(r => pm.expect(r.type).to.eql('API'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "BPS-004 — GET list (filter by processName)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics?processName=nightly",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"],
+              "query": [
+                { "key": "processName", "value": "nightly",
+                  "description": "Case-insensitive substring match" }
+              ]
+            },
+            "description": "Case-insensitive substring search on processName."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "BPS-004 — GET list (filter by date range)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics?startDateTimeFrom=2024-01-01T00:00:00Z&startDateTimeTo=2024-12-31T23:59:59Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"],
+              "query": [
+                { "key": "startDateTimeFrom", "value": "2024-01-01T00:00:00Z",
+                  "description": "ISO-8601 UTC inclusive lower bound" },
+                { "key": "startDateTimeTo",   "value": "2024-12-31T23:59:59Z",
+                  "description": "ISO-8601 UTC inclusive upper bound" }
+              ]
+            },
+            "description": "Filter by startDateTime range. Both sides optional. UI converts local time to UTC before calling this endpoint."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "BPS-004 — GET list (all filters combined)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics?page=0&size=10&sort=startDateTime,desc&type=BATCH&processName=import&startDateTimeFrom=2024-01-01T00:00:00Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"],
+              "query": [
+                { "key": "page",              "value": "0" },
+                { "key": "size",              "value": "10" },
+                { "key": "sort",              "value": "startDateTime,desc" },
+                { "key": "type",              "value": "BATCH" },
+                { "key": "processName",       "value": "import" },
+                { "key": "startDateTimeFrom", "value": "2024-01-01T00:00:00Z" }
+              ]
+            },
+            "description": "All filters combined with AND semantics (BPS-002)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "BPS-005 — GET by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics/{{recordId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics","{{recordId}}"]
+            },
+            "description": "Retrieve a single record by UUID. Populate {{recordId}} first by running the POST request."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Record id matches', () => {",
+                  "    pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get('recordId'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Epic 2 & 3 — REST API Write (Batch Runner)",
+      "item": [
+
+        {
+          "name": "BPS-006 — POST create (job start, no endDateTime)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{batchRunnerToken}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"processName\": \"Nightly FDIC Import\",\n  \"startDateTime\": \"2024-06-01T02:00:00Z\",\n  \"type\": \"BATCH\",\n  \"recordsGathered\": 0,\n  \"recordsChanged\": 0,\n  \"errorRecords\": 0,\n  \"processedRecords\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"]
+            },
+            "description": "Creates a record at job registration / start time. endDateTime omitted (job still in progress). Returns 201 with Location header."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Location header present', () => {",
+                  "    pm.expect(pm.response.headers.get('Location')).to.include('/api/v1/batch-processing-statistics/');",
+                  "});",
+                  "pm.test('Save recordId for downstream requests', () => {",
+                  "    const location = pm.response.headers.get('Location');",
+                  "    const id = location.split('/').pop();",
+                  "    pm.collectionVariables.set('recordId', id);",
+                  "    pm.expect(id).to.match(/^[0-9a-f-]{36}$/i);",
+                  "});",
+                  "pm.test('endDateTime is null (job in progress)', () => {",
+                  "    pm.expect(pm.response.json().endDateTime).to.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "BPS-006 — POST create (all fields)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{batchRunnerToken}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"processName\": \"SFTP Pull — Counterparty Data\",\n  \"startDateTime\": \"2024-06-01T03:00:00Z\",\n  \"endDateTime\":   \"2024-06-01T03:45:00Z\",\n  \"type\": \"SFTP_PULL\",\n  \"recordsGathered\": 5000,\n  \"recordsChanged\": 4800,\n  \"errorRecords\": 12,\n  \"processedRecords\": 4788\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"]
+            },
+            "description": "Creates a completed record with all fields including endDateTime."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('All fields present in response', () => {",
+                  "    const b = pm.response.json();",
+                  "    ['id','processName','startDateTime','endDateTime','type',",
+                  "     'recordsGathered','recordsChanged','errorRecords','processedRecords',",
+                  "     'createdBy','createdDateTime','updatedBy','updatedDateTime']",
+                  "    .forEach(f => pm.expect(b).to.have.property(f));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "BPS-007 — PUT full replace (job completion)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{batchRunnerToken}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"processName\": \"Nightly FDIC Import\",\n  \"startDateTime\": \"2024-06-01T02:00:00Z\",\n  \"endDateTime\":   \"2024-06-01T02:55:00Z\",\n  \"type\": \"BATCH\",\n  \"recordsGathered\": 12000,\n  \"recordsChanged\": 11800,\n  \"errorRecords\": 42,\n  \"processedRecords\": 11758\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics/{{recordId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics","{{recordId}}"]
+            },
+            "description": "Full replacement — all required fields must be present. PUT is not a partial update. Typically called at job completion to set endDateTime and final counts."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('endDateTime updated', () => {",
+                  "    pm.expect(pm.response.json().endDateTime).to.not.be.null;",
+                  "});",
+                  "pm.test('recordsGathered updated', () => {",
+                  "    pm.expect(pm.response.json().recordsGathered).to.eql(12000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Error & Security Cases",
+      "item": [
+
+        {
+          "name": "400 — GET list invalid sort field",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics?sort=unknownField,asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"],
+              "query": [{ "key": "sort", "value": "unknownField,asc" }]
+            },
+            "description": "Sort field outside the allow-list returns 400 problem+json."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('problem+json content type', () => {",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('problem+json');",
+                  "});",
+                  "pm.test('detail mentions sort field', () => {",
+                  "    pm.expect(pm.response.json().detail).to.include('unknownField');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "400 — GET list invalid type value",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics?type=INVALID_TYPE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"],
+              "query": [{ "key": "type", "value": "INVALID_TYPE" }]
+            },
+            "description": "Type value outside EMAIL/API/SFTP_PULL/BATCH returns 400."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "400 — GET by id invalid UUID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics/not-a-valid-uuid",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics","not-a-valid-uuid"]
+            },
+            "description": "Non-UUID path variable returns 400 problem+json."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "400 — POST missing required fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{batchRunnerToken}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startDateTime\": \"2024-06-01T02:00:00Z\",\n  \"type\": \"BATCH\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"]
+            },
+            "description": "Missing processName, recordsGathered etc. Returns 400 with errors array listing each violation."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errors array present', () => {",
+                  "    pm.expect(pm.response.json().errors).to.be.an('array').with.length.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "400 — POST server-managed field in body",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{batchRunnerToken}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"00000000-0000-0000-0000-000000000001\",\n  \"processName\": \"Bad Request Test\",\n  \"startDateTime\": \"2024-06-01T02:00:00Z\",\n  \"type\": \"API\",\n  \"recordsGathered\": 0,\n  \"recordsChanged\": 0,\n  \"errorRecords\": 0,\n  \"processedRecords\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"]
+            },
+            "description": "id, createdBy, createdDateTime, updatedBy, updatedDateTime must NOT be in the request body. Returns 400 with errors array naming each offending field."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('errors mentions id field', () => {",
+                  "    const fields = pm.response.json().errors.map(e => e.field);",
+                  "    pm.expect(fields).to.include('id');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "400 — POST endDateTime before startDateTime",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{batchRunnerToken}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"processName\": \"Bad Date Test\",\n  \"startDateTime\": \"2024-06-01T10:00:00Z\",\n  \"endDateTime\":   \"2024-06-01T09:00:00Z\",\n  \"type\": \"EMAIL\",\n  \"recordsGathered\": 0,\n  \"recordsChanged\": 0,\n  \"errorRecords\": 0,\n  \"processedRecords\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"]
+            },
+            "description": "endDateTime must be >= startDateTime when provided."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "404 — GET by id record not found",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics/00000000-0000-0000-0000-000000000000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics","00000000-0000-0000-0000-000000000000"]
+            },
+            "description": "Valid UUID that does not exist returns 404 problem+json."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('problem+json content type', () => {",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('problem+json');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "401 — GET list no token",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Accept", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"]
+            },
+            "description": "No Bearer token returns 401 with WWW-Authenticate header."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('WWW-Authenticate header present', () => {",
+                  "    pm.expect(pm.response.headers.get('WWW-Authenticate')).to.include('Bearer');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "403 — POST with human token (read-only role)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"processName\": \"Forbidden Test\",\n  \"startDateTime\": \"2024-06-01T02:00:00Z\",\n  \"type\": \"BATCH\",\n  \"recordsGathered\": 0,\n  \"recordsChanged\": 0,\n  \"errorRecords\": 0,\n  \"processedRecords\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"]
+            },
+            "description": "Human roles (Admin/Manager/Sr. Analyst/Analyst) cannot POST. Only Batch Runner service principal may POST."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "403 — GET list with Batch Runner token (no read access)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{batchRunnerToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"]
+            },
+            "description": "Batch Runner service principal has no GET access. Returns 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "405 — DELETE collection (BPS-008)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{humanToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics"]
+            },
+            "description": "DELETE is globally disabled. Returns 405 with Allow header listing supported methods."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 405', () => pm.response.to.have.status(405));",
+                  "pm.test('Allow header present', () => {",
+                  "    pm.expect(pm.response.headers.get('Allow')).to.exist;",
+                  "});",
+                  "pm.test('problem+json content type', () => {",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('problem+json');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "405 — DELETE by id (BPS-008)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{batchRunnerToken}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics/{{recordId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics","{{recordId}}"]
+            },
+            "description": "DELETE by id is globally disabled regardless of principal. Returns 405."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 405', () => pm.response.to.have.status(405));"
+                ]
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "405 — PATCH by id (BPS-008)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{batchRunnerToken}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"processName\": \"partial update attempt\"}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/batch-processing-statistics/{{recordId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api","v1","batch-processing-statistics","{{recordId}}"]
+            },
+            "description": "PATCH is globally disabled. Partial updates are not supported."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 405', () => pm.response.to.have.status(405));"
+                ]
+              }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "OpenAPI (BPS-010)",
+      "item": [
+        {
+          "name": "GET OpenAPI spec (JSON)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/v3/api-docs",
+              "host": ["{{baseUrl}}"],
+              "path": ["v3","api-docs"]
+            },
+            "description": "OpenAPI 3.1 JSON spec. No auth required."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('openapi field present', () => {",
+                  "    pm.expect(pm.response.json()).to.have.property('openapi');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET Swagger UI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/swagger-ui.html",
+              "host": ["{{baseUrl}}"],
+              "path": ["swagger-ui.html"]
+            },
+            "description": "Swagger UI HTML page. No auth required."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+
+  ]
+}
