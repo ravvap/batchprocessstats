@@ -197,42 +197,4 @@ public final class ApplicationConstants {
         public static final String OID    = "oid";
         public static final String TID    = "tid";
     }
-    
-    
-    /** SpEL expression — used directly in @PreAuthorize */
-    public static final class Expr {
-        private Expr() {}
-
-        public static final String ADMIN_OR_MANAGER =
-                "hasAnyRole('TIP_ADMIN', 'MANAGER')";
-
-        public static final String POLICY_VIEWERS =
-                "hasAnyRole('TIP_ADMIN', 'MANAGER', 'SR_ANALYST')";
-
-        public static final String ITEM_REGISTRARS =
-                "hasAnyRole('TIP_ADMIN', 'MANAGER', 'SR_ANALYST', 'CASH_MGMT', 'COMPLIANCE_ANALYST')";
-
-        public static final String ITEM_VIEWERS =
-                "hasAnyRole('TIP_ADMIN', 'MANAGER', 'SR_ANALYST', 'ANALYST', 'CASH_MGMT', 'COMPLIANCE_ANALYST', 'AUDITOR')";
-
-        public static final String DISPOSITION_OPERATORS =
-                "hasAnyRole('TIP_ADMIN', 'MANAGER', 'SCHEDULER')";
-
-        public static final String HOLD_MANAGERS =
-                "hasAnyRole('TIP_ADMIN', 'MANAGER')";
-
-        public static final String HOLD_VIEWERS =
-                "hasAnyRole('TIP_ADMIN', 'MANAGER', 'CASH_MGMT', 'COMPLIANCE_ANALYST', 'AUDITOR')";
-
-        public static final String AUDIT_VIEWERS =
-                "hasAnyRole('TIP_ADMIN', 'MANAGER', 'AUDITOR', 'CASH_MGMT', 'COMPLIANCE_ANALYST')";
-
-        public static final String BATCH_OPERATORS =
-                "hasAnyRole('TIP_ADMIN', 'SCHEDULER')";
-
-        public static final String BATCH_VIEWERS =
-                "hasAnyRole('TIP_ADMIN', 'MANAGER', 'AUDITOR')";
-    }
-    
-    
 }

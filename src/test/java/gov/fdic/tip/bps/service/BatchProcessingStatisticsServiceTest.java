@@ -207,10 +207,9 @@ class BatchProcessingStatisticsServiceTest {
             Instant start = Instant.parse("2024-06-01T10:00:00Z");
             Instant end   = Instant.parse("2024-06-01T09:00:00Z");
 
-			/*
-			 * when(sourceSystemRepository.findById(1L))
-			 * .thenReturn(Optional.of(sampleSourceSystem));
-			 */
+            when(sourceSystemRepository.findById(1L))
+                    .thenReturn(Optional.of(sampleSourceSystem));
+
             BatchProcessingStatisticsDto.RequestBody body = new BatchProcessingStatisticsDto.RequestBody(
                     1L, null, "BATCH", 0, "RUNNING",
                     start, end, "ACTIVE", null,
