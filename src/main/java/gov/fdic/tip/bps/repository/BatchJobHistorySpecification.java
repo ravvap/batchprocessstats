@@ -77,10 +77,9 @@ public final class BatchJobHistorySpecification {
                 predicates.add(cb.lessThanOrEqualTo(root.get("startTime"), to));
             }
 
-            // Avoid duplicate rows when join is present with COUNT query for pagination
-            if (query.getResultType() != Long.class && query.getResultType() != long.class) {
-                query.distinct(true);
-            }
+            // ManyToOne join to sourceSystem — no duplicate rows possible,
+            // so distinct(true) is not needed and would conflict with ORDER BY
+            // on the joined column in PostgreSQL.
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
