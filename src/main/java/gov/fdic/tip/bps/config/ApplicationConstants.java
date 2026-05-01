@@ -164,6 +164,8 @@ public final class ApplicationConstants {
     // ====================================================================== //
     public static final class ValidationMessages {
         private ValidationMessages() {}
+
+        // POST fields
         public static final String SOURCE_SYSTEM_ID_REQUIRED       = "sourceSystemId is required";
         public static final String JOB_TYPE_REQUIRED               = "jobType is required";
         public static final String JOB_TYPE_SIZE                   = "jobType must be <= 100 characters";
@@ -178,6 +180,18 @@ public final class ApplicationConstants {
         public static final String RECORDS_PROCESSED_CURRENT_MIN   = "recordsProcessedCurrentPeriod must be >= 0";
         public static final String RECORDS_PROCESSED_PRIOR_MIN     = "recordsProcessedPriorPeriod must be >= 0";
         public static final String RECORDS_UNPOSTABLE_MIN          = "recordsUnpostable must be >= 0";
+
+        // PUT fields (BPS-007)
+        public static final String PROCESS_NAME_REQUIRED           = "processName is required";
+        public static final String PROCESS_NAME_SIZE               = "processName must be 1–100 characters";
+        public static final String TYPE_REQUIRED                   = "type is required";
+        public static final String TYPE_SIZE                       = "type must be <= 100 characters";
+        public static final String RECORDS_GATHERED_REQUIRED       = "recordsGathered is required";
+        public static final String RECORDS_CHANGED_REQUIRED        = "recordsChanged is required";
+        public static final String ERROR_RECORDS_REQUIRED          = "errorRecords is required";
+        public static final String ERROR_RECORDS_MIN               = "errorRecords must be >= 0";
+        public static final String PROCESSED_RECORDS_REQUIRED      = "processedRecords is required";
+        public static final String PROCESSED_RECORDS_MIN           = "processedRecords must be >= 0";
     }
 
     // ====================================================================== //

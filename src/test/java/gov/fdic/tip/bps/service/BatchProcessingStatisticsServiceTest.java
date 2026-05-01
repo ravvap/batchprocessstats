@@ -169,7 +169,7 @@ class BatchProcessingStatisticsServiceTest {
                     .thenReturn(Optional.of(sampleSourceSystem));
             when(jobHistoryRepository.save(any())).thenReturn(sampleEntity);
 
-            Response result = service.create(validRequestBody());
+            Response result = service.create(validPostBody());
 
             verify(jobHistoryRepository).save(any(BatchJobHistory.class));
             assertThat(result.getId()).isEqualTo(100L);
@@ -181,10 +181,11 @@ class BatchProcessingStatisticsServiceTest {
         void create_invalidSourceSystem_throws404() {
             when(sourceSystemRepository.findById(99L)).thenReturn(Optional.empty());
 
-            BatchProcessingStatisticsDto.RequestBody body = new BatchProcessingStatisticsDto.RequestBody(
-                    99L, null, "BATCH", 0, "RUNNING",
-                    Instant.now(), null, "ACTIVE", null,
-                    0, 0, 0, 0, 0, null);
+            BatchProcessingStatisticsDto.PostRequestBody body =
+                    new BatchProcessingStatisticsDto.PostRequestBody(
+                            99L, null, "BATCH", 0, "RUNNING",
+                            Instant.now(), null, "ACTIVE", null,
+                            0, 0, 0, 0, 0, null);
 
             assertThatThrownBy(() -> service.create(body))
                     .isInstanceOf(SourceSystemNotFoundException.class);
@@ -193,11 +194,12 @@ class BatchProcessingStatisticsServiceTest {
         @Test
         @DisplayName("throws ServerManagedFieldException when id is present")
         void create_withIdField_throws400() {
-            BatchProcessingStatisticsDto.RequestBody body = new BatchProcessingStatisticsDto.RequestBody(
-                    1L, null, "BATCH", 0, "RUNNING",
-                    Instant.now(), null, "ACTIVE", null,
-                    0, 0, 0, 0, 0,
-                    100L); // id supplied — forbidden
+            BatchProcessingStatisticsDto.PostRequestBody body =
+                    new BatchProcessingStatisticsDto.PostRequestBody(
+                            1L, null, "BATCH", 0, "RUNNING",
+                            Instant.now(), null, "ACTIVE", null,
+                            0, 0, 0, 0, 0,
+                            100L); // id supplied — forbidden
 
             assertThatThrownBy(() -> service.create(body))
                     .isInstanceOf(ServerManagedFieldException.class)
@@ -213,10 +215,11 @@ class BatchProcessingStatisticsServiceTest {
             Instant end   = Instant.parse("2024-06-01T09:00:00Z");
 
             // No sourceSystem stub needed — validation fires before the FK lookup
-            BatchProcessingStatisticsDto.RequestBody body = new BatchProcessingStatisticsDto.RequestBody(
-                    1L, null, "BATCH", 0, "RUNNING",
-                    start, end, "ACTIVE", null,
-                    0, 0, 0, 0, 0, null);
+            BatchProcessingStatisticsDto.PostRequestBody body =
+                    new BatchProcessingStatisticsDto.PostRequestBody(
+                            1L, null, "BATCH", 0, "RUNNING",
+                            start, end, "ACTIVE", null,
+                            0, 0, 0, 0, 0, null);
 
             assertThatThrownBy(() -> service.create(body))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -233,13 +236,12 @@ class BatchProcessingStatisticsServiceTest {
     class ReplaceTests {
 
         @Test
-        @DisplayName("updates all fields and returns 200")
+        @DisplayName("updates specified fields and returns 200")
         void replace_existingRecord_updatesFields() {
             when(jobHistoryRepository.findById(100L)).thenReturn(Optional.of(sampleEntity));
-            when(sourceSystemRepository.findById(1L)).thenReturn(Optional.of(sampleSourceSystem));
             when(jobHistoryRepository.save(any())).thenReturn(sampleEntity);
 
-            Response result = service.replace(100L, validRequestBody());
+            Response result = service.replace(100L, validPutBody());
 
             verify(jobHistoryRepository).save(any(BatchJobHistory.class));
             assertThat(result).isNotNull();
@@ -250,7 +252,7 @@ class BatchProcessingStatisticsServiceTest {
         void replace_notFound_throws404() {
             when(jobHistoryRepository.findById(999L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.replace(999L, validRequestBody()))
+            assertThatThrownBy(() -> service.replace(999L, validPutBody()))
                     .isInstanceOf(BatchStatisticsNotFoundException.class);
         }
     }
@@ -259,8 +261,8 @@ class BatchProcessingStatisticsServiceTest {
     //  Helpers                                                            //
     // ------------------------------------------------------------------ //
 
-    private BatchProcessingStatisticsDto.RequestBody validRequestBody() {
-        return new BatchProcessingStatisticsDto.RequestBody(
+    private BatchProcessingStatisticsDto.PostRequestBody validPostBody() {
+        return new BatchProcessingStatisticsDto.PostRequestBody(
                 1L,                                     // sourceSystemId
                 42L,                                    // jobId
                 "BATCH",                                // jobType
@@ -275,7 +277,20 @@ class BatchProcessingStatisticsServiceTest {
                 980,                                    // recordsProcessedCurrentPeriod
                 0,                                      // recordsProcessedPriorPeriod
                 20,                                     // recordsUnpostable
-                null                                    // id (server-managed)
+                null                                    // id — server-managed
+        );
+    }
+
+    private BatchProcessingStatisticsDto.PutRequestBody validPutBody() {
+        return new BatchProcessingStatisticsDto.PutRequestBody(
+                "Nightly FDIC Import",                  // processName
+                Instant.parse("2024-01-01T00:00:00Z"), // startTime
+                Instant.parse("2024-01-01T01:00:00Z"), // endTime (optional)
+                "BATCH",                                // type
+                1000,                                   // recordsGathered
+                980,                                    // recordsChanged
+                20,                                     // errorRecords
+                960                                     // processedRecords
         );
     }
 }

@@ -253,7 +253,7 @@ class BatchProcessingStatisticsControllerTest {
 
             mockMvc.perform(put(BASE_URL + "/100")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(validPostBody())
+                            .content(validPutBody())
                             .with(jwt().authorities(() -> "ROLE_BATCH_RUNNER")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(100));
@@ -264,7 +264,7 @@ class BatchProcessingStatisticsControllerTest {
         void put_managerRole_returns403() throws Exception {
             mockMvc.perform(put(BASE_URL + "/100")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(validPostBody())
+                            .content(validPutBody())
                             .with(jwt().authorities(() -> "ROLE_MANAGER")))
                     .andExpect(status().isForbidden());
         }
@@ -277,7 +277,7 @@ class BatchProcessingStatisticsControllerTest {
 
             mockMvc.perform(put(BASE_URL + "/999")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content(validPostBody())
+                            .content(validPutBody())
                             .with(jwt().authorities(() -> "ROLE_BATCH_RUNNER")))
                     .andExpect(status().isNotFound());
         }
@@ -372,6 +372,21 @@ class BatchProcessingStatisticsControllerTest {
                   "recordsProcessedCurrentPeriod": 980,
                   "recordsProcessedPriorPeriod": 0,
                   "recordsUnpostable": 20
+                }
+                """;
+    }
+
+    private String validPutBody() {
+        return """
+                {
+                  "processName": "Nightly FDIC Import",
+                  "startTime":   "2024-01-01T00:00:00Z",
+                  "endTime":     "2024-01-01T01:00:00Z",
+                  "type":        "BATCH",
+                  "recordsGathered":  1000,
+                  "recordsChanged":    980,
+                  "errorRecords":       20,
+                  "processedRecords":  960
                 }
                 """;
     }

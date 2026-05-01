@@ -122,13 +122,13 @@ public class BatchProcessingStatisticsService {
     // ------------------------------------------------------------------ //
 
     @Transactional
-    public Response create(BatchProcessingStatisticsDto.RequestBody body) {
+    public Response create(BatchProcessingStatisticsDto.PostRequestBody body) {
         validateNoServerManagedFields(body);
         validateEndTimeNotBeforeStart(body.startTime(), body.endTime());
 
         BatchSourceSystem sourceSystem = resolveSourceSystem(body.sourceSystemId());
         BatchJobHistory entity = new BatchJobHistory();
-        applyFields(entity, body, sourceSystem);
+        applyPostFields(entity, body, sourceSystem);
 
         BatchJobHistory saved = jobHistoryRepository.save(entity);
         log.info("{} id={} jobType={} sourceName={}",
@@ -140,18 +140,19 @@ public class BatchProcessingStatisticsService {
 
     // ------------------------------------------------------------------ //
     //  BPS-007: PUT – full replace                                        //
+    //  Updates: processName, startTime, endTime (optional), type,         //
+    //           recordsGathered, recordsChanged, errorRecords,            //
+    //           processedRecords                                          //
     // ------------------------------------------------------------------ //
 
     @Transactional
-    public Response replace(Long id, BatchProcessingStatisticsDto.RequestBody body) {
-        validateNoServerManagedFields(body);
+    public Response replace(Long id, BatchProcessingStatisticsDto.PutRequestBody body) {
         validateEndTimeNotBeforeStart(body.startTime(), body.endTime());
 
         BatchJobHistory entity = jobHistoryRepository.findById(id)
                 .orElseThrow(() -> new BatchStatisticsNotFoundException(id));
 
-        BatchSourceSystem sourceSystem = resolveSourceSystem(body.sourceSystemId());
-        applyFields(entity, body, sourceSystem);
+        applyPutFields(entity, body);
 
         BatchJobHistory saved = jobHistoryRepository.save(entity);
         log.info("{} id={}", AuditEvents.BATCH_STATISTICS_UPDATED, saved.getId());
@@ -167,7 +168,7 @@ public class BatchProcessingStatisticsService {
                 .orElseThrow(() -> new SourceSystemNotFoundException(sourceSystemId));
     }
 
-    private void validateNoServerManagedFields(BatchProcessingStatisticsDto.RequestBody body) {
+    private void validateNoServerManagedFields(BatchProcessingStatisticsDto.PostRequestBody body) {
         List<String> offenders = new ArrayList<>();
         if (body.id() != null) offenders.add("id");
         if (!offenders.isEmpty()) throw new ServerManagedFieldException(offenders);
@@ -179,9 +180,10 @@ public class BatchProcessingStatisticsService {
         }
     }
 
-    private void applyFields(BatchJobHistory entity,
-                             BatchProcessingStatisticsDto.RequestBody body,
-                             BatchSourceSystem sourceSystem) {
+    /** Maps POST body → all batch_job_history fields. */
+    private void applyPostFields(BatchJobHistory entity,
+                                 BatchProcessingStatisticsDto.PostRequestBody body,
+                                 BatchSourceSystem sourceSystem) {
         entity.setSourceSystem(sourceSystem);
         entity.setJobId(body.jobId());
         entity.setJobType(body.jobType());
@@ -196,6 +198,27 @@ public class BatchProcessingStatisticsService {
         entity.setRecordsProcessedCurrentPeriod(body.recordsProcessedCurrentPeriod());
         entity.setRecordsProcessedPriorPeriod(body.recordsProcessedPriorPeriod());
         entity.setRecordsUnpostable(body.recordsUnpostable());
+    }
+
+    /**
+     * Maps PUT body → the specific updatable fields per BPS-007:
+     * processName, startTime, endTime (optional), type,
+     * recordsGathered, recordsChanged, errorRecords, processedRecords.
+     *
+     * All other fields (sourceSystem, jobStatus, retryCount, etc.) are
+     * preserved from the existing record — PUT is a targeted replacement
+     * of these business fields only.
+     */
+    private void applyPutFields(BatchJobHistory entity,
+                                BatchProcessingStatisticsDto.PutRequestBody body) {
+        entity.setJobType(body.processName());          // processName → job_type
+        entity.setStartTime(body.startTime());
+        entity.setEndTime(body.endTime());              // optional — null clears end time
+        entity.setStatus(body.type());                  // type → status
+        entity.setRecordsGathered(body.recordsGathered());
+        entity.setRecordsChanged(body.recordsChanged());
+        entity.setRecordsUnpostable(body.errorRecords());          // errorRecords → records_unpostable
+        entity.setRecordsProcessedCurrentPeriod(body.processedRecords()); // processedRecords → current period
     }
 
     private Response toResponse(BatchJobHistory e) {

@@ -16,24 +16,25 @@ import java.util.List;
  * DTOs for the Batch Processing Statistics API.
  * Backed by batch_job_history + batch_source_system tables.
  *
- * BPS-001, BPS-004, BPS-005, BPS-006, BPS-007
+ * Separate request bodies for POST (BPS-006) and PUT (BPS-007):
+ *
+ *   PostRequestBody — full job registration payload (all batch_job_history fields)
+ *   PutRequestBody  — job completion / correction payload:
+ *                     processName, startTime, endTime (optional), type,
+ *                     recordsGathered, recordsChanged, errorRecords, processedRecords
  */
 public final class BatchProcessingStatisticsDto {
 
     private BatchProcessingStatisticsDto() {}
 
     // ------------------------------------------------------------------ //
-    //  Request body: POST (BPS-006) and PUT (BPS-007)                    //
+    //  POST request body — BPS-006                                        //
+    //  Full job registration at start time                                //
     // ------------------------------------------------------------------ //
 
-    /**
-     * Fields accepted in POST / PUT bodies.
-     * Server-managed field (id) must NOT be present with a non-null value.
-     */
-    public record RequestBody(
+    public record PostRequestBody(
 
-            /** FK to batch_source_system.id */
-            @NotNull(message = "sourceSystemId is required")
+            @NotNull(message = ValidationMessages.SOURCE_SYSTEM_ID_REQUIRED)
             Long sourceSystemId,
 
             Long jobId,
@@ -51,6 +52,7 @@ public final class BatchProcessingStatisticsDto {
             @NotNull(message = ValidationMessages.START_TIME_REQUIRED)
             Instant startTime,
 
+            /** Optional — null while job is still in progress */
             Instant endTime,
 
             @NotBlank(message = ValidationMessages.STATUS_REQUIRED)
@@ -75,8 +77,49 @@ public final class BatchProcessingStatisticsDto {
             @Min(value = 0, message = ValidationMessages.RECORDS_UNPOSTABLE_MIN)
             Integer recordsUnpostable,
 
-            // Server-managed — must be null/absent in every request body
+            /** Server-managed — must be null/absent in request body */
             Long id
+    ) {}
+
+    // ------------------------------------------------------------------ //
+    //  PUT request body — BPS-007                                         //
+    //  Full replacement: job completion or correction of a posted record  //
+    //  Fields: processName, startTime, endTime (optional), type,          //
+    //          recordsGathered, recordsChanged, errorRecords,             //
+    //          processedRecords                                           //
+    // ------------------------------------------------------------------ //
+
+    public record PutRequestBody(
+
+            @NotBlank(message = ValidationMessages.PROCESS_NAME_REQUIRED)
+            @Size(min = 1, max = 100, message = ValidationMessages.PROCESS_NAME_SIZE)
+            String processName,
+
+            @NotNull(message = ValidationMessages.START_TIME_REQUIRED)
+            Instant startTime,
+
+            /** Optional — null indicates the job has not ended. Must be >= startTime when set. */
+            Instant endTime,
+
+            @NotBlank(message = ValidationMessages.TYPE_REQUIRED)
+            @Size(max = 100, message = ValidationMessages.TYPE_SIZE)
+            String type,
+
+            @NotNull(message = ValidationMessages.RECORDS_GATHERED_REQUIRED)
+            @Min(value = 0, message = ValidationMessages.RECORDS_GATHERED_MIN)
+            Integer recordsGathered,
+
+            @NotNull(message = ValidationMessages.RECORDS_CHANGED_REQUIRED)
+            @Min(value = 0, message = ValidationMessages.RECORDS_CHANGED_MIN)
+            Integer recordsChanged,
+
+            @NotNull(message = ValidationMessages.ERROR_RECORDS_REQUIRED)
+            @Min(value = 0, message = ValidationMessages.ERROR_RECORDS_MIN)
+            Integer errorRecords,
+
+            @NotNull(message = ValidationMessages.PROCESSED_RECORDS_REQUIRED)
+            @Min(value = 0, message = ValidationMessages.PROCESSED_RECORDS_MIN)
+            Integer processedRecords
     ) {}
 
     // ------------------------------------------------------------------ //
@@ -99,7 +142,7 @@ public final class BatchProcessingStatisticsDto {
         Integer retryCount;
         String  jobStatus;
         Instant startTime;
-        Instant endTime;        // null while job is in progress (rendered as em-dash in UI)
+        Instant endTime;        // null while job is in progress (em-dash in UI)
         String  status;
         String  errorMessage;
         Integer recordsChanged;
@@ -107,6 +150,12 @@ public final class BatchProcessingStatisticsDto {
         Integer recordsProcessedCurrentPeriod;
         Integer recordsProcessedPriorPeriod;
         Integer recordsUnpostable;
+
+        // PUT-updated fields
+        String  processName;
+        String  type;
+        Integer errorRecords;
+        Integer processedRecords;
     }
 
     // ------------------------------------------------------------------ //

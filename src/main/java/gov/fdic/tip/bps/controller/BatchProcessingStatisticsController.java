@@ -102,41 +102,32 @@ public class BatchProcessingStatisticsController {
     @PreAuthorize("hasRole('BATCH_RUNNER')")
     @Operation(summary = "Create a new batch job history record (BPS-006)")
     public ResponseEntity<Response> create(
-            @Valid @RequestBody BatchProcessingStatisticsDto.RequestBody body,
+            @Valid @RequestBody BatchProcessingStatisticsDto.PostRequestBody body,
             @AuthenticationPrincipal Jwt jwt
     ) {
         Response created = service.create(body);
-
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(created.getId())
                 .toUri();
-
         log.info("{} id={} caller={}",
                 gov.fdic.tip.bps.config.ApplicationConstants.AuditEvents.BATCH_STATISTICS_CREATED,
                 created.getId(), resolveClientId(jwt));
-
         return ResponseEntity.created(location).body(created);
     }
 
-    // ------------------------------------------------------------------ //
-    //  BPS-007: PUT – full replace                                        //
-    // ------------------------------------------------------------------ //
-
     @PutMapping(path = "/{id}", consumes = "application/json", produces = "application/json")
     @PreAuthorize("hasRole('BATCH_RUNNER')")
-    @Operation(summary = "Fully replace a batch job history record (BPS-007)")
+    @Operation(summary = "Replace processName, startTime, endTime, type, records fields (BPS-007)")
     public ResponseEntity<Response> replace(
             @PathVariable Long id,
-            @Valid @RequestBody BatchProcessingStatisticsDto.RequestBody body,
+            @Valid @RequestBody BatchProcessingStatisticsDto.PutRequestBody body,
             @AuthenticationPrincipal Jwt jwt
     ) {
         Response updated = service.replace(id, body);
-
         log.info("{} id={} caller={}",
                 gov.fdic.tip.bps.config.ApplicationConstants.AuditEvents.BATCH_STATISTICS_UPDATED,
                 id, resolveClientId(jwt));
-
         return ResponseEntity.ok(updated);
     }
 
