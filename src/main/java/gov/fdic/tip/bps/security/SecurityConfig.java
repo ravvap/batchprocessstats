@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -71,13 +72,22 @@ public class SecurityConfig {
             .sessionManagement(sm ->
                 sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // OpenAPI / Swagger — no auth required (BPS-010)
                 .requestMatchers(
                     ApiPaths.OPENAPI_ALL,
                     ApiPaths.SWAGGER_UI_ALL,
                     ApiPaths.SWAGGER_UI)
                     .permitAll()
-                .requestMatchers(ApiPaths.BPS_V1_BASE + "/**")
-                    .authenticated()
+                // GET — VIEW role only
+                .requestMatchers(HttpMethod.GET, ApiPaths.BPS_V1_BASE + "/**")
+                    .hasRole(EntraRoles.BATCH_PRCS_STATS_VIEW)
+                // POST — ADD or EDIT role
+                .requestMatchers(HttpMethod.POST, ApiPaths.BPS_V1_BASE)
+                    .hasAnyRole(EntraRoles.BATCH_PRCS_STATS_ADD, EntraRoles.BATCH_PRCS_STATS_EDIT)
+                // PUT — ADD or EDIT role
+                .requestMatchers(HttpMethod.PUT, ApiPaths.BPS_V1_BASE + "/**")
+                    .hasAnyRole(EntraRoles.BATCH_PRCS_STATS_ADD, EntraRoles.BATCH_PRCS_STATS_EDIT)
+                // DELETE / PATCH — denied for all (405 via ControllerAdvice, BPS-008)
                 .anyRequest()
                     .authenticated()
             )
