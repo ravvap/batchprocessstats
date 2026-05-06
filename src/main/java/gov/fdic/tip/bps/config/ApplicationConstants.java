@@ -8,15 +8,13 @@ public final class ApplicationConstants {
     private ApplicationConstants() {}
 
     // ====================================================================== //
-    //  Roles — Entra JWT claim values                                        //
+    //  Roles — Entra JWT claim values (as they appear in the 'roles' claim)  //
     // ====================================================================== //
     public static final class EntraRoles {
         private EntraRoles() {}
-        public static final String ADMIN                  = "Admin";
-        public static final String MANAGER               = "Manager";
-        public static final String SR_ANALYST            = "Sr. Analyst";
-        public static final String ANALYST               = "Analyst";
-        public static final String BATCH_STATISTICS_WRITE = "BatchStatistics.Write";
+        public static final String BATCH_PRCS_STATS_VIEW  = "BATCH_PRCS_STATS_VIEW";
+        public static final String BATCH_PRCS_STATS_ADD   = "BATCH_PRCS_STATS_ADD";
+        public static final String BATCH_PRCS_STATS_EDIT  = "BATCH_PRCS_STATS_EDIT";
     }
 
     // ====================================================================== //
@@ -24,11 +22,24 @@ public final class ApplicationConstants {
     // ====================================================================== //
     public static final class Roles {
         private Roles() {}
-        public static final String ADMIN        = "ROLE_ADMIN";
-        public static final String MANAGER      = "ROLE_MANAGER";
-        public static final String SR_ANALYST   = "ROLE_SR_ANALYST";
-        public static final String ANALYST      = "ROLE_ANALYST";
-        public static final String BATCH_RUNNER = "ROLE_BATCH_RUNNER";
+
+        public static final String BATCH_PRCS_STATS_VIEW  = "BATCH_PRCS_STATS_VIEW";
+        public static final String BATCH_PRCS_STATS_ADD   = "BATCH_PRCS_STATS_ADD";
+        public static final String BATCH_PRCS_STATS_EDIT  = "BATCH_PRCS_STATS_EDIT";
+
+        // A single shared Batch Runner service principal is used by all
+        // upstream runners; finer-grained attribution is out of scope.
+
+        /** SpEL expressions — used directly in @PreAuthorize */
+        public static final class Expr {
+            private Expr() {}
+
+            public static final String LIST_VIEWERS =
+                    "hasAnyRole('" + BATCH_PRCS_STATS_VIEW + "')";
+
+            public static final String BATCH_RUNNERS =
+                    "hasAnyRole('" + BATCH_PRCS_STATS_ADD + "','" + BATCH_PRCS_STATS_EDIT + "')";
+        }
     }
 
     // ====================================================================== //

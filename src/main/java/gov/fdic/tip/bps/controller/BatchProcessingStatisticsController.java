@@ -1,6 +1,7 @@
 package gov.fdic.tip.bps.controller;
 
 import gov.fdic.tip.bps.config.ApplicationConstants.ApiPaths;
+import gov.fdic.tip.bps.config.ApplicationConstants.Roles;
 import gov.fdic.tip.bps.config.ApplicationConstants.JwtClaims;
 import gov.fdic.tip.bps.config.ApplicationConstants.Pagination;
 import gov.fdic.tip.bps.config.ApplicationConstants.SortFields;
@@ -54,7 +55,7 @@ public class BatchProcessingStatisticsController {
     // ------------------------------------------------------------------ //
 
     @GetMapping(produces = "application/json")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','SR_ANALYST','ANALYST')")
+    @PreAuthorize(Roles.Expr.LIST_VIEWERS)
     @Operation(summary = "Get paginated list of batch job history records (BPS-004)")
     public ResponseEntity<PagedResponse<Response>> list(
             @RequestParam(defaultValue = "" + Pagination.DEFAULT_PAGE)     int    page,
@@ -82,7 +83,7 @@ public class BatchProcessingStatisticsController {
     // ------------------------------------------------------------------ //
 
     @GetMapping(path = "/{id}", produces = "application/json")
-    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','SR_ANALYST','ANALYST')")
+    @PreAuthorize(Roles.Expr.LIST_VIEWERS)
     @Operation(summary = "Get a single batch job history record by id (BPS-005)")
     public ResponseEntity<Response> getById(
             @PathVariable Long id,
@@ -99,7 +100,7 @@ public class BatchProcessingStatisticsController {
     // ------------------------------------------------------------------ //
 
     @PostMapping(consumes = "application/json", produces = "application/json")
-    @PreAuthorize("hasRole('BATCH_RUNNER')")
+    @PreAuthorize(Roles.Expr.BATCH_RUNNERS)
     @Operation(summary = "Create a new batch job history record (BPS-006)")
     public ResponseEntity<Response> create(
             @Valid @RequestBody BatchProcessingStatisticsDto.PostRequestBody body,
@@ -117,7 +118,7 @@ public class BatchProcessingStatisticsController {
     }
 
     @PutMapping(path = "/{id}", consumes = "application/json", produces = "application/json")
-    @PreAuthorize("hasRole('BATCH_RUNNER')")
+    @PreAuthorize(Roles.Expr.BATCH_RUNNERS)
     @Operation(summary = "Replace processName, startTime, endTime, type, records fields (BPS-007)")
     public ResponseEntity<Response> replace(
             @PathVariable Long id,

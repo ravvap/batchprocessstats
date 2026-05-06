@@ -65,7 +65,7 @@ class BatchProcessingStatisticsControllerTest {
                     .thenReturn(emptyPage());
 
             mockMvc.perform(get(BASE_URL)
-                            .with(jwt().authorities(() -> "ROLE_ANALYST")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_VIEW")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.content").isArray());
         }
@@ -78,7 +78,7 @@ class BatchProcessingStatisticsControllerTest {
                     .thenReturn(emptyPage());
 
             mockMvc.perform(get(BASE_URL)
-                            .with(jwt().authorities(() -> "ROLE_ADMIN")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_VIEW")))
                     .andExpect(status().isOk());
         }
 
@@ -91,7 +91,7 @@ class BatchProcessingStatisticsControllerTest {
 
             mockMvc.perform(get(BASE_URL)
                             .param("sourceName", "SIMS")
-                            .with(jwt().authorities(() -> "ROLE_ANALYST")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_VIEW")))
                     .andExpect(status().isOk());
         }
 
@@ -104,7 +104,7 @@ class BatchProcessingStatisticsControllerTest {
 
             mockMvc.perform(get(BASE_URL)
                             .param("jobStatus", "SUCCESS")
-                            .with(jwt().authorities(() -> "ROLE_ANALYST")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_VIEW")))
                     .andExpect(status().isOk());
         }
 
@@ -116,10 +116,10 @@ class BatchProcessingStatisticsControllerTest {
         }
 
         @Test
-        @DisplayName("403 for BATCH_RUNNER role")
+        @DisplayName("403 for VIEW-only role (no ADD/EDIT)")
         void list_batchRunnerRole_returns403() throws Exception {
             mockMvc.perform(get(BASE_URL)
-                            .with(jwt().authorities(() -> "ROLE_BATCH_RUNNER")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_ADD")))
                     .andExpect(status().isForbidden());
         }
 
@@ -132,7 +132,7 @@ class BatchProcessingStatisticsControllerTest {
 
             mockMvc.perform(get(BASE_URL)
                             .param("sort", "badField,asc")
-                            .with(jwt().authorities(() -> "ROLE_ANALYST")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_VIEW")))
                     .andExpect(status().isBadRequest())
                     .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
         }
@@ -152,7 +152,7 @@ class BatchProcessingStatisticsControllerTest {
             when(service.getById(100L)).thenReturn(sampleResponse());
 
             mockMvc.perform(get(BASE_URL + "/100")
-                            .with(jwt().authorities(() -> "ROLE_ANALYST")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_VIEW")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(100))
                     .andExpect(jsonPath("$.jobStatus").value("SUCCESS"))
@@ -166,16 +166,16 @@ class BatchProcessingStatisticsControllerTest {
                     .thenThrow(new BatchStatisticsNotFoundException(999L));
 
             mockMvc.perform(get(BASE_URL + "/999")
-                            .with(jwt().authorities(() -> "ROLE_ANALYST")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_VIEW")))
                     .andExpect(status().isNotFound())
                     .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
         }
 
         @Test
-        @DisplayName("403 for BATCH_RUNNER")
+        @DisplayName("403 for VIEW-only role on GET by id")
         void getById_batchRunner_returns403() throws Exception {
             mockMvc.perform(get(BASE_URL + "/100")
-                            .with(jwt().authorities(() -> "ROLE_BATCH_RUNNER")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_ADD")))
                     .andExpect(status().isForbidden());
         }
     }
@@ -196,19 +196,19 @@ class BatchProcessingStatisticsControllerTest {
             mockMvc.perform(post(BASE_URL)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(validPostBody())
-                            .with(jwt().authorities(() -> "ROLE_BATCH_RUNNER")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_ADD")))
                     .andExpect(status().isCreated())
                     .andExpect(header().exists("Location"))
                     .andExpect(jsonPath("$.id").value(100));
         }
 
         @Test
-        @DisplayName("403 for ADMIN — POST not allowed")
+        @DisplayName("403 for VIEW-only role — POST not allowed")
         void post_adminRole_returns403() throws Exception {
             mockMvc.perform(post(BASE_URL)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(validPostBody())
-                            .with(jwt().authorities(() -> "ROLE_ADMIN")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_VIEW")))
                     .andExpect(status().isForbidden());
         }
 
@@ -223,7 +223,7 @@ class BatchProcessingStatisticsControllerTest {
             mockMvc.perform(post(BASE_URL)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body)
-                            .with(jwt().authorities(() -> "ROLE_BATCH_RUNNER")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_ADD")))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.errors").isArray());
         }
@@ -254,18 +254,18 @@ class BatchProcessingStatisticsControllerTest {
             mockMvc.perform(put(BASE_URL + "/100")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(validPutBody())
-                            .with(jwt().authorities(() -> "ROLE_BATCH_RUNNER")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_ADD")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(100));
         }
 
         @Test
-        @DisplayName("403 for MANAGER — PUT not allowed")
+        @DisplayName("403 for VIEW-only role — PUT not allowed")
         void put_managerRole_returns403() throws Exception {
             mockMvc.perform(put(BASE_URL + "/100")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(validPutBody())
-                            .with(jwt().authorities(() -> "ROLE_MANAGER")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_VIEW")))
                     .andExpect(status().isForbidden());
         }
 
@@ -278,7 +278,7 @@ class BatchProcessingStatisticsControllerTest {
             mockMvc.perform(put(BASE_URL + "/999")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(validPutBody())
-                            .with(jwt().authorities(() -> "ROLE_BATCH_RUNNER")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_ADD")))
                     .andExpect(status().isNotFound());
         }
     }
@@ -295,7 +295,7 @@ class BatchProcessingStatisticsControllerTest {
         @DisplayName("DELETE collection returns 405 with Allow header")
         void delete_collection_returns405() throws Exception {
             mockMvc.perform(delete(BASE_URL)
-                            .with(jwt().authorities(() -> "ROLE_ADMIN")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_VIEW")))
                     .andExpect(status().isMethodNotAllowed())
                     .andExpect(header().exists("Allow"))
                     .andExpect(content().contentTypeCompatibleWith("application/problem+json"));
@@ -305,7 +305,7 @@ class BatchProcessingStatisticsControllerTest {
         @DisplayName("DELETE by id returns 405")
         void delete_byId_returns405() throws Exception {
             mockMvc.perform(delete(BASE_URL + "/100")
-                            .with(jwt().authorities(() -> "ROLE_BATCH_RUNNER")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_ADD")))
                     .andExpect(status().isMethodNotAllowed());
         }
 
@@ -315,7 +315,7 @@ class BatchProcessingStatisticsControllerTest {
             mockMvc.perform(patch(BASE_URL + "/100")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}")
-                            .with(jwt().authorities(() -> "ROLE_BATCH_RUNNER")))
+                            .with(jwt().authorities(() -> "ROLE_BATCH_PRCS_STATS_ADD")))
                     .andExpect(status().isMethodNotAllowed());
         }
 

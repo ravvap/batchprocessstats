@@ -1,0 +1,28 @@
+# ============================================================
+#  LOCAL profile — for developer testing only
+#
+#  Activate with:
+#    -Dspring.profiles.active=local
+#    or: export SPRING_PROFILES_ACTIVE=local
+#
+#  Security is fully disabled (permitAll).
+#  NEVER use this profile in a shared / deployed environment.
+# ============================================================
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tipdb
+    username: ${DB_USERNAME:tip}
+    password: ${DB_PASSWORD:tip}
+
+  # Skip Entra JWT validation — no token needed when running locally
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/local-placeholder/v2.0
+
+logging:
+  level:
+    gov.fdic.tip: DEBUG
+    org.springframework.security: DEBUG
