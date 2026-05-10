@@ -32,32 +32,29 @@ import java.util.Map;
 /**
  * Service layer for Batch Processing Statistics (BPS-004 through BPS-007).
  *
- * Backed by batch_job_history + batch_source_system.
- *
- * Filters: sourceName (LIKE on source_name), jobStatus, jobType, startTimeFrom/To.
- * Sort:    sourceName maps to "sourceSystem.sourceName" (Spring Data JPA joined path).
+ * BPS-010 audit columns requirement:
+ *   id, createdBy, createdDateTime, updatedBy, updatedDateTime are server-managed.
+ *   - POST: createdBy and updatedBy are set from the caller's identity.
+ *           createdDateTime and updatedDateTime are set by @CreationTimestamp / @UpdateTimestamp.
+ *   - PUT:  updatedBy is refreshed from caller identity; other audit fields are preserved.
+ *   - GET:  all four audit columns are always included in the Response.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class BatchProcessingStatisticsService {
 
-    /**
-     * User-facing sort key → actual JPA field path.
-     * sourceName is on the joined BatchSourceSystem entity, so its path must be
-     * "sourceSystem.sourceName" for Spring Data JPA to resolve it correctly.
-     */
     private static final Map<String, String> SORT_FIELD_MAP = Map.of(
-            SortFields.SOURCE_NAME,                SortFields.SOURCE_NAME_JPA_PATH,
-            SortFields.START_TIME,                 SortFields.START_TIME,
-            SortFields.END_TIME,                   SortFields.END_TIME,
-            SortFields.JOB_TYPE,                   SortFields.JOB_TYPE,
-            SortFields.JOB_STATUS,                 SortFields.JOB_STATUS,
-            SortFields.STATUS,                     SortFields.STATUS,
-            SortFields.RECORDS_GATHERED,           SortFields.RECORDS_GATHERED,
-            SortFields.RECORDS_CHANGED,            SortFields.RECORDS_CHANGED,
-            SortFields.RECORDS_PROCESSED_CURRENT,  SortFields.RECORDS_PROCESSED_CURRENT,
-            SortFields.RECORDS_PROCESSED_PRIOR,    SortFields.RECORDS_PROCESSED_PRIOR
+            SortFields.SOURCE_NAME,               SortFields.SOURCE_NAME_JPA_PATH,
+            SortFields.START_TIME,                SortFields.START_TIME,
+            SortFields.END_TIME,                  SortFields.END_TIME,
+            SortFields.JOB_TYPE,                  SortFields.JOB_TYPE,
+            SortFields.JOB_STATUS,                SortFields.JOB_STATUS,
+            SortFields.STATUS,                    SortFields.STATUS,
+            SortFields.RECORDS_GATHERED,          SortFields.RECORDS_GATHERED,
+            SortFields.RECORDS_CHANGED,           SortFields.RECORDS_CHANGED,
+            SortFields.RECORDS_PROCESSED_CURRENT, SortFields.RECORDS_PROCESSED_CURRENT,
+            SortFields.RECORDS_PROCESSED_PRIOR,   SortFields.RECORDS_PROCESSED_PRIOR
     );
 
     private final BatchJobHistoryRepository   jobHistoryRepository;
@@ -67,13 +64,6 @@ public class BatchProcessingStatisticsService {
     //  BPS-004: GET paginated, filterable list                            //
     // ------------------------------------------------------------------ //
 
-    /**
-     * @param sourceName  case-insensitive substring filter on batch_source_system.source_name
-     * @param jobStatus   exact match filter on job_status
-     * @param jobType     case-insensitive substring filter on job_type
-     * @param from        inclusive UTC lower bound on start_time
-     * @param to          inclusive UTC upper bound on start_time
-     */
     @Transactional(readOnly = true)
     public PagedResponse<Response> list(
             int page, int size, String sortParam,
@@ -121,8 +111,12 @@ public class BatchProcessingStatisticsService {
     //  BPS-006: POST – create                                             //
     // ------------------------------------------------------------------ //
 
+    /**
+     * @param callerIdentity  resolved from JWT (azp / appid / sub) — stored as createdBy / updatedBy
+     */
     @Transactional
-    public Response create(BatchProcessingStatisticsDto.PostRequestBody body) {
+    public Response create(BatchProcessingStatisticsDto.PostRequestBody body,
+                           String callerIdentity) {
         validateNoServerManagedFields(body);
         validateEndTimeNotBeforeStart(body.startTime(), body.endTime());
 
@@ -130,32 +124,41 @@ public class BatchProcessingStatisticsService {
         BatchJobHistory entity = new BatchJobHistory();
         applyPostFields(entity, body, sourceSystem);
 
+        // Audit columns — server-managed
+        entity.setCreatedBy(callerIdentity);
+        entity.setUpdatedBy(callerIdentity);
+
         BatchJobHistory saved = jobHistoryRepository.save(entity);
-        log.info("{} id={} jobType={} sourceName={}",
+        log.info("{} id={} jobType={} sourceName={} caller={}",
                 AuditEvents.BATCH_STATISTICS_CREATED,
                 saved.getId(), saved.getJobType(),
-                saved.getSourceSystem().getSourceName());
+                saved.getSourceSystem().getSourceName(), callerIdentity);
         return toResponse(saved);
     }
 
     // ------------------------------------------------------------------ //
-    //  BPS-007: PUT – full replace                                        //
-    //  Updates: processName, startTime, endTime (optional), type,         //
-    //           recordsGathered, recordsChanged, errorRecords,            //
-    //           processedRecords                                          //
+    //  BPS-007: PUT – targeted field replacement                          //
     // ------------------------------------------------------------------ //
 
+    /**
+     * @param callerIdentity  resolved from JWT — updates updatedBy audit column
+     */
     @Transactional
-    public Response replace(Long id, BatchProcessingStatisticsDto.PutRequestBody body) {
-        validateEndTimeNotBeforeStart(body.startTime(), body.endTime());
+    public Response replace(Long id,
+                            BatchProcessingStatisticsDto.PutRequestBody body,
+                            String callerIdentity) {
+        validateEndTimeNotBeforeStart(body.getStartTime(), body.getEndTime());
 
         BatchJobHistory entity = jobHistoryRepository.findById(id)
                 .orElseThrow(() -> new BatchStatisticsNotFoundException(id));
 
         applyPutFields(entity, body);
+        // createdBy / createdDateTime preserved by JPA (updatable = false)
+        entity.setUpdatedBy(callerIdentity);
 
         BatchJobHistory saved = jobHistoryRepository.save(entity);
-        log.info("{} id={}", AuditEvents.BATCH_STATISTICS_UPDATED, saved.getId());
+        log.info("{} id={} caller={}", AuditEvents.BATCH_STATISTICS_UPDATED,
+                saved.getId(), callerIdentity);
         return toResponse(saved);
     }
 
@@ -168,9 +171,18 @@ public class BatchProcessingStatisticsService {
                 .orElseThrow(() -> new SourceSystemNotFoundException(sourceSystemId));
     }
 
-    private void validateNoServerManagedFields(BatchProcessingStatisticsDto.PostRequestBody body) {
+    /**
+     * Guards against non-null server-managed fields in POST body (BPS-010).
+     * Rejected fields: id, createdBy, createdDateTime, updatedBy, updatedDateTime.
+     */
+    private void validateNoServerManagedFields(
+            BatchProcessingStatisticsDto.PostRequestBody body) {
         List<String> offenders = new ArrayList<>();
-        if (body.id() != null) offenders.add("id");
+        if (body.id()              != null) offenders.add("id");
+        if (body.createdBy()       != null) offenders.add("createdBy");
+        if (body.createdDateTime() != null) offenders.add("createdDateTime");
+        if (body.updatedBy()       != null) offenders.add("updatedBy");
+        if (body.updatedDateTime() != null) offenders.add("updatedDateTime");
         if (!offenders.isEmpty()) throw new ServerManagedFieldException(offenders);
     }
 
@@ -180,13 +192,13 @@ public class BatchProcessingStatisticsService {
         }
     }
 
-    /** Maps POST body → all batch_job_history fields. */
     private void applyPostFields(BatchJobHistory entity,
                                  BatchProcessingStatisticsDto.PostRequestBody body,
                                  BatchSourceSystem sourceSystem) {
         entity.setSourceSystem(sourceSystem);
         entity.setJobId(body.jobId());
         entity.setJobType(body.jobType());
+        entity.setBatchType(body.batchType());
         entity.setRetryCount(body.retryCount());
         entity.setJobStatus(body.jobStatus());
         entity.setStartTime(body.startTime());
@@ -200,40 +212,45 @@ public class BatchProcessingStatisticsService {
         entity.setRecordsUnpostable(body.recordsUnpostable());
     }
 
-    /**
-     * Maps PUT body → the specific updatable fields per BPS-007:
-     * processName, startTime, endTime (optional), type,
-     * recordsGathered, recordsChanged, errorRecords, processedRecords.
-     *
-     * All other fields (sourceSystem, jobStatus, retryCount, etc.) are
-     * preserved from the existing record — PUT is a targeted replacement
-     * of these business fields only.
-     */
     private void applyPutFields(BatchJobHistory entity,
                                 BatchProcessingStatisticsDto.PutRequestBody body) {
-        entity.setJobType(body.processName());          // processName → job_type
-        entity.setStartTime(body.startTime());
-        entity.setEndTime(body.endTime());              // optional — null clears end time
-        entity.setStatus(body.type());                  // type → status
-        entity.setRecordsGathered(body.recordsGathered());
-        entity.setRecordsChanged(body.recordsChanged());
-        entity.setRecordsUnpostable(body.errorRecords());          // errorRecords → records_unpostable
-        entity.setRecordsProcessedCurrentPeriod(body.processedRecords()); // processedRecords → current period
+        entity.setJobType(body.getProcessName());
+        entity.setStartTime(body.getStartTime());
+        entity.setEndTime(body.getEndTime());
+        entity.setBatchType(body.getBatchType());
+        entity.setRecordsGathered(body.getRecordsGathered());
+        entity.setRecordsChanged(body.getRecordsChanged());
+        entity.setRecordsUnpostable(body.getErrorRecords());
+        entity.setRecordsProcessedCurrentPeriod(body.getProcessedRecords());
     }
 
+    /**
+     * Maps entity → Response DTO.
+     * Audit fields (id, createdBy, createdDateTime, updatedBy, updatedDateTime)
+     * are always included per BPS-010.
+     */
     private Response toResponse(BatchJobHistory e) {
         return Response.builder()
+                // Server-managed — always returned
                 .id(e.getId())
+                .createdBy(e.getCreatedBy())
+                .createdDateTime(e.getCreatedDateTime())
+                .updatedBy(e.getUpdatedBy())
+                .updatedDateTime(e.getUpdatedDateTime())
+                // Source system
                 .sourceSystemId(e.getSourceSystem().getId())
                 .sourceSystemName(e.getSourceSystem().getSourceName())
+                // Job fields
                 .jobId(e.getJobId())
                 .jobType(e.getJobType())
+                .batchType(e.getBatchType())
                 .retryCount(e.getRetryCount())
                 .jobStatus(e.getJobStatus())
                 .startTime(e.getStartTime())
                 .endTime(e.getEndTime())
                 .status(e.getStatus())
                 .errorMessage(e.getErrorMessage())
+                // Record counts
                 .recordsChanged(e.getRecordsChanged())
                 .recordsGathered(e.getRecordsGathered())
                 .recordsProcessedCurrentPeriod(e.getRecordsProcessedCurrentPeriod())
@@ -242,13 +259,6 @@ public class BatchProcessingStatisticsService {
                 .build();
     }
 
-    /**
-     * Parses "field,direction" sort param and builds a Pageable.
-     *
-     * "sourceName" is mapped to "sourceSystem.sourceName" — Spring Data JPA
-     * resolves dotted paths across associations for Sort when used with
-     * JpaSpecificationExecutor.
-     */
     private Pageable buildPageable(int page, int size, String sortParam) {
         int clampedSize = Math.min(
                 Math.max(size, Pagination.MIN_PAGE_SIZE),
@@ -262,7 +272,6 @@ public class BatchProcessingStatisticsService {
         String userField = parts[0].trim();
         String direction = parts[1].trim();
 
-        // Map user-facing field name → JPA field path
         String jpaField = SORT_FIELD_MAP.get(userField);
         if (jpaField == null) {
             throw new IllegalArgumentException(ErrorMessages.SORT_FIELD_UNKNOWN + userField);

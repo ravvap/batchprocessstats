@@ -5,6 +5,7 @@ import gov.fdic.tip.bps.dto.BatchProcessingStatisticsDto.PagedResponse;
 import gov.fdic.tip.bps.dto.BatchProcessingStatisticsDto.Response;
 import gov.fdic.tip.bps.entity.BatchJobHistory;
 import gov.fdic.tip.bps.entity.BatchSourceSystem;
+import gov.fdic.tip.bps.entity.BatchType;
 import gov.fdic.tip.bps.exception.BatchStatisticsNotFoundException;
 import gov.fdic.tip.bps.exception.ServerManagedFieldException;
 import gov.fdic.tip.bps.exception.SourceSystemNotFoundException;
@@ -47,6 +48,10 @@ class BatchProcessingStatisticsServiceTest {
         sampleEntity = new BatchJobHistory();
         sampleEntity.setId(100L);
         sampleEntity.setSourceSystem(sampleSourceSystem);
+        sampleEntity.setCreatedBy("svc-batch-runner");
+        sampleEntity.setCreatedDateTime(Instant.parse("2024-01-01T00:00:00Z"));
+        sampleEntity.setUpdatedBy("svc-batch-runner");
+        sampleEntity.setUpdatedDateTime(Instant.parse("2024-01-01T00:00:00Z"));
         sampleEntity.setJobId(42L);
         sampleEntity.setJobType("BATCH");
         sampleEntity.setRetryCount(0);
@@ -142,6 +147,11 @@ class BatchProcessingStatisticsServiceTest {
             assertThat(result.getId()).isEqualTo(100L);
             assertThat(result.getJobStatus()).isEqualTo("SUCCESS");
             assertThat(result.getSourceSystemName()).isEqualTo("SIMS");
+            // Audit fields must always be present in response (BPS-010)
+            assertThat(result.getCreatedBy()).isEqualTo("svc-batch-runner");
+            assertThat(result.getCreatedDateTime()).isNotNull();
+            assertThat(result.getUpdatedBy()).isEqualTo("svc-batch-runner");
+            assertThat(result.getUpdatedDateTime()).isNotNull();
         }
 
         @Test
@@ -169,7 +179,7 @@ class BatchProcessingStatisticsServiceTest {
                     .thenReturn(Optional.of(sampleSourceSystem));
             when(jobHistoryRepository.save(any())).thenReturn(sampleEntity);
 
-            Response result = service.create(validPostBody());
+            Response result = service.create(validPostBody(), "svc-batch-runner");
 
             verify(jobHistoryRepository).save(any(BatchJobHistory.class));
             assertThat(result.getId()).isEqualTo(100L);
@@ -241,7 +251,7 @@ class BatchProcessingStatisticsServiceTest {
             when(jobHistoryRepository.findById(100L)).thenReturn(Optional.of(sampleEntity));
             when(jobHistoryRepository.save(any())).thenReturn(sampleEntity);
 
-            Response result = service.replace(100L, validPutBody());
+            Response result = service.replace(100L, validPutBody(), "svc-batch-runner");
 
             verify(jobHistoryRepository).save(any(BatchJobHistory.class));
             assertThat(result).isNotNull();
@@ -252,7 +262,7 @@ class BatchProcessingStatisticsServiceTest {
         void replace_notFound_throws404() {
             when(jobHistoryRepository.findById(999L)).thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> service.replace(999L, validPutBody()))
+            assertThatThrownBy(() -> service.replace(999L, validPutBody(), "svc-batch-runner"))
                     .isInstanceOf(BatchStatisticsNotFoundException.class);
         }
     }
@@ -286,7 +296,7 @@ class BatchProcessingStatisticsServiceTest {
                 "Nightly FDIC Import",                  // processName
                 Instant.parse("2024-01-01T00:00:00Z"), // startTime
                 Instant.parse("2024-01-01T01:00:00Z"), // endTime (optional)
-                "BATCH",                                // type
+                BatchType.BATCH,                           // batchType
                 1000,                                   // recordsGathered
                 980,                                    // recordsChanged
                 20,                                     // errorRecords

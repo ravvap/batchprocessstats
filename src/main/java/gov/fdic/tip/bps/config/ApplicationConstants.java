@@ -195,6 +195,7 @@ public final class ApplicationConstants {
         // PUT fields (BPS-007)
         public static final String PROCESS_NAME_REQUIRED           = "processName is required";
         public static final String PROCESS_NAME_SIZE               = "processName must be 1–100 characters";
+        public static final String BATCH_TYPE_REQUIRED             = "batchType is required; allowed values: EMAIL, API, SFTP_PULL, BATCH";
         public static final String TYPE_REQUIRED                   = "type is required";
         public static final String TYPE_SIZE                       = "type must be <= 100 characters";
         public static final String RECORDS_GATHERED_REQUIRED       = "recordsGathered is required";
